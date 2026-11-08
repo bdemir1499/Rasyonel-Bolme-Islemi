@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kesirlerde Bölme: Sayı Doğrusu Modeli</title>
+    <style>
+        :root {
+            /* Geombala Renk Paleti */
+            --primary: #9b59b6;       
+            --primary-dark: #8e44ad;
+            --secondary: #00cec9;     
+            --danger: #ff7675;        
+            --success: #00b894;       
+            --badge-bg: #ff4757;      
+            --dark: #2d3436;
+            --bg: #f4f6f7;
+            --chat-bg: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box; margin: 0; padding: 0;
+            user-select: none; -webkit-user-select: none;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        html, body {
+            width: 100%; height: 100%; overflow: hidden;
+            background-color: var(--bg);
+        }
+
+        body {
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 1vh 2vw;
+        }
+
+        /* --- ÜST BİLGİ KUTUSU --- */
+        #creator-header {
+            width: fit-content; min-width: 280px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: clamp(8px, 1.5vh, 12px) clamp(20px, 4vw, 30px); margin-bottom: clamp(10px, 2vh, 15px);
+            background: white; border-radius: 30px;
+            border: 2px dashed #a29bfe; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); gap: 6px; z-index: 10;
+        }
+        .header-name { font-weight: 900; color: var(--dark); font-size: clamp(14px, 3vw, 18px); letter-spacing: 0.5px; }
+        .header-insta {
+            background: var(--badge-bg); color: white; padding: 5px 16px; border-radius: 20px;
+            font-size: clamp(12px, 2.5vw, 16px); font-weight: 700; display: flex; align-items: center; gap: 5px;
+        }
+        .header-insta a { text-decoration: none; color: white; }
+        .header-insta svg { width: clamp(14px, 3vw, 18px); height: clamp(14px, 3vw, 18px); stroke: white; }
+
+        /* --- OYUN ANA ÇERÇEVESİ --- */
+        #game-wrapper {
+            width: 100%; max-width: 1000px; flex-grow: 1;
+            background: var(--chat-bg); border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden;
+            display: flex; flex-direction: column; border: 4px solid var(--primary);
+            position: relative;
+        }
+
+        /* --- FİLİGRAN --- */
+        #watermark {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) rotate(-15deg);
+            font-size: clamp(24px, 5vw, 60px); font-weight: 900;
+            color: rgba(0, 0, 0, 0.04); pointer-events: none; z-index: 1; white-space: nowrap;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .wm-logo { width: 1.2em; height: 1.2em; stroke: rgba(225, 48, 108, 0.25); fill: none; }
+
+        /* --- BAŞLANGIÇ EKRANI --- */
+        #start-screen {
+            flex-grow: 1; display: flex; flex-direction: column; justify-content: center; 
+            align-items: center; padding: clamp(20px, 4vw, 40px); text-align: center; z-index: 10; background: white;
+        }
+        #start-screen h2 { color: var(--primary-dark); margin-bottom: 15px; font-size: clamp(24px, 5vw, 36px); }
+        #start-screen p { color: var(--dark); font-weight: 600; line-height: 1.5; margin-bottom: 25px; font-size: clamp(14px, 2.5vw, 18px); }
+
+        .btn-start {
+            padding: clamp(12px, 2vh, 20px) clamp(30px, 6vw, 50px); font-size: clamp(16px, 3.5vw, 24px); font-weight: 900; background: var(--primary);
+            border: none; border-radius: 30px; color: white; cursor: pointer; box-shadow: 0 8px 0 var(--primary-dark);
+            transition: all 0.2s;
+        }
+        .btn-start:active { transform: translateY(8px); box-shadow: 0 0 0 transparent; }
+
+        /* --- SAYI DOĞRUSU ANİMASYON TAHTASI --- */
+        #animation-board {
+            display: none; background: #2d3436; color: white; padding: 10px 15px;
+            text-align: center; border-bottom: 5px solid var(--secondary); z-index: 5;
+            height: clamp(180px, 28vh, 280px); justify-content: flex-start; align-items: center; flex-direction: column;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15); position: relative;
+        }
+        .board-title { 
+            font-size: clamp(12px, 2vw, 16px); color: #b2bec3; text-transform: uppercase; 
+            font-weight: bold; margin-bottom: 5px; letter-spacing: 1px; flex-shrink: 0;
+        }
+        #svg-container {
+            width: 100%; flex-grow: 1; display: flex; justify-content: center; align-items: center;
+        }
+        
+        /* SVG CSS Animasyonları */
+        .dash-anim {
+            stroke-dasharray: 1000; stroke-dashoffset: 1000;
+            animation: drawDash 0.5s ease-out forwards;
+        }
+        @keyframes drawDash { to { stroke-dashoffset: 0; } }
+        
+        .fade-in { opacity: 0; animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn { to { opacity: 1; } }
+
+        /* --- SOHBET ALANI --- */
+        #chat-area {
+            flex-grow: 1; display: none; flex-direction: column; padding: clamp(15px, 3vw, 25px);
+            overflow-y: auto; gap: 15px; background: #fafbfc; scroll-behavior: smooth; z-index: 2;
+        }
+
+        .message {
+            display: flex; gap: 10px; max-width: 90%;
+            animation: popIn 0.3s ease-out forwards; opacity: 0; transform: translateY(10px);
+        }
+        @keyframes popIn { to { opacity: 1; transform: translateY(0); } }
+
+        .msg-teacher { align-self: flex-start; }
+        .msg-student { align-self: flex-end; flex-direction: row-reverse; }
+
+        .avatar {
+            width: clamp(35px, 8vw, 45px); height: clamp(35px, 8vw, 45px); border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: clamp(18px, 4vw, 24px); box-shadow: 0 2px 5px rgba(0,0,0,0.1); flex-shrink: 0;
+        }
+        .avatar-teacher { background: var(--primary); color: white; }
+        .avatar-student { background: var(--success); color: white; }
+
+        .bubble {
+            padding: clamp(10px, 2vw, 15px) clamp(15px, 3vw, 20px); border-radius: 20px;
+            font-size: clamp(14px, 3vw, 18px); line-height: 1.4; font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06); position: relative;
+        }
+        .msg-teacher .bubble { background: white; color: var(--dark); border-top-left-radius: 5px; border: 1px solid #eee; }
+        .msg-student .bubble { background: rgba(46, 204, 113, 0.15); color: #1e8449; border-top-right-radius: 5px; border: 1px solid rgba(46, 204, 113, 0.3); }
+        
+        .fraction {
+            display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+            vertical-align: middle; line-height: 1.1; margin: 0 3px; font-weight: 900; color: var(--primary-dark);
+        }
+        .fraction > span:first-child { border-bottom: 2px solid currentColor; padding: 0 2px; }
+
+        /* --- SEÇENEKLER ALANI --- */
+        #options-area {
+            display: none; padding: clamp(15px, 3vh, 25px); background: white;
+            border-top: 2px dashed #dfe6e9; justify-content: center; flex-wrap: wrap; gap: 12px; z-index: 10;
+        }
+        .opt-btn {
+            flex-grow: 1; min-width: 40%; max-width: 48%; padding: clamp(12px, 2vh, 18px);
+            font-size: clamp(14px, 3vw, 18px); font-weight: 800; background: white;
+            border: 3px solid var(--primary); border-radius: 15px; color: var(--primary-dark);
+            cursor: pointer; transition: all 0.2s; box-shadow: 0 5px 0 var(--primary);
+            display: flex; align-items: center; justify-content: center; text-align: center;
+        }
+        .opt-btn:active { transform: translateY(5px); box-shadow: 0 0 0 transparent; }
+        .opt-btn.wrong { background: var(--danger); border-color: #c0392b; color: white; box-shadow: 0 5px 0 #c0392b; animation: shake 0.4s; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+        /* Konfeti */
+        #confetti-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- ÜST KİMLİK KUTUSU -->
+    <div id="creator-header">
+        <div class="header-name">Bekir DEMİREL</div>
+        <div class="header-insta">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+            </svg>
+            <a href="https://instagram.com/matejital_mt25" target="_blank">@matejital_mt25 ✔</a>
+        </div>
+    </div>
+
+    <div id="game-wrapper">
+        <canvas id="confetti-canvas"></canvas>
+        
+        <div id="start-screen">
+            <div style="font-size: clamp(50px, 10vw, 80px); margin-bottom: 10px;">📉</div>
+            <h2>Zehra Teyze'nin Sirkeleri</h2>
+            <p>Rasyonel sayılarda bölme işlemini ezberlemiyoruz!<br><br>Zehra Teyze'nin 6 litre sirkesini Sayı Doğrusu üzerinde parçalayarak "Ters çevirip çarpma" kuralını bizzat sen keşfedeceksin.</p>
+            <button class="btn-start" id="startBtn">Sayı Doğrusunu Çiz 🚀</button>
+        </div>
+
+        <!-- FİLİGRAN -->
+        <div id="watermark">
+            <svg class="wm-logo" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+            @matejital_mt25
+        </div>
+
+        <!-- ANİMASYON TAHTASI -->
+        <div id="animation-board">
+            <div class="board-title" id="board-desc">Sayı Doğrusu Modeli Hazırlanıyor...</div>
+            <div id="svg-container"></div>
+        </div>
+
+        <!-- SOHBET ALANI -->
+        <div id="chat-area"></div>
+
+        <!-- SEÇENEKLER ALANI -->
+        <div id="options-area"></div>
+    </div>
+
+    <script>
+        // ==========================================
+        // SES MOTORU
+        // ==========================================
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+        function playSound(type) {
+            try {
+                initAudio(); const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+
+                if (type === 'msg') {
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+                    gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now + 0.1);
+                    osc.start(now); osc.stop(now + 0.1);
+                } else if (type === 'correct') {
+                    osc.type = 'triangle'; osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.1);
+                    osc.frequency.setValueAtTime(783.99, now + 0.2); gain.gain.setValueAtTime(0.3, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now); osc.stop(now + 0.4);
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, now); osc.frequency.linearRampToValueAtTime(150, now + 0.3);
+                    gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now); osc.stop(now + 0.3);
+                } else if (type === 'pop') {
+                    osc.type = 'square'; osc.frequency.setValueAtTime(500 + Math.random()*200, now); osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+                    gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0, now + 0.05);
+                    osc.start(now); osc.stop(now + 0.05);
+                }
+            } catch (e) {}
+        }
+
+        // ==========================================
+        // SAYI DOĞRUSU SVG ANİMASYON MOTORU (GÜNCELLENDİ)
+        // ==========================================
+        let jumpInterval = null;
+
+        function drawNumberLineAnimation(whole, den, num, descText) {
+            clearInterval(jumpInterval);
+            document.getElementById('board-desc').innerText = descText;
+            const container = document.getElementById('svg-container');
+            
+            // Viewbox Yüksekliği Artırıldı (Kesirler rahat sığsın diye)
+            const w = 1000; const h = 230; 
+            const startX = 50; const endX = 950; const lineY = 140;
+            const usableW = endX - startX;
+            
+            let svgHTML = `<svg viewBox="0 0 ${w} ${h}" style="width:100%; height:100%; max-height: 250px;">`;
+            
+            // Ana doğru
+            svgHTML += `<line x1="${startX-20}" y1="${lineY}" x2="${endX+20}" y2="${lineY}" stroke="#b2bec3" stroke-width="4" stroke-linecap="round"/>`;
+            
+            // Alt çizgiler (Fractions)
+            const subSpace = usableW / (whole * den);
+            for(let i=0; i <= whole * den; i++) {
+                let x = startX + i * subSpace;
+                let isWhole = (i % den === 0);
+                
+                // Tam sayılar ile kesir çizgilerini ayırma (Kalınlık ve Renk)
+                let tickH = isWhole ? 18 : 12;
+                let color = isWhole ? "#ffffff" : "#00cec9"; // Kesir çizgileri Turkuaz
+                let strokeW = isWhole ? 4 : 3;
+                
+                svgHTML += `<line x1="${x}" y1="${lineY - tickH}" x2="${x}" y2="${lineY + tickH}" stroke="${color}" stroke-width="${strokeW}" stroke-linecap="round"/>`;
+                
+                // Etiketler (Tam sayılar büyük ve beyaz, kesirler alt alta turkuaz)
+                if (isWhole) {
+                    let numLabel = i / den;
+                    // Tam sayılar biraz daha aşağıda
+                    svgHTML += `<text x="${x}" y="${lineY + 45}" fill="#ecf0f1" font-size="26" font-weight="900" text-anchor="middle">${numLabel}</text>`;
+                } else {
+                    // Kesirler: Pay, Bölü Çizgisi, Payda
+                    svgHTML += `<text x="${x}" y="${lineY + 26}" fill="#00cec9" font-size="13" font-weight="bold" text-anchor="middle">${i}</text>`;
+                    svgHTML += `<line x1="${x - 6}" y1="${lineY + 30}" x2="${x + 6}" y2="${lineY + 30}" stroke="#00cec9" stroke-width="1.5"/>`;
+                    svgHTML += `<text x="${x}" y="${lineY + 42}" fill="#00cec9" font-size="13" font-weight="bold" text-anchor="middle">${den}</text>`;
+                }
+            }
+            svgHTML += `</svg>`;
+            container.innerHTML = svgHTML;
+            const svgEl = container.querySelector('svg');
+
+            // Yay (Jump) Animasyonları
+            const totalJumps = (whole * den) / num;
+            let currentJump = 0;
+
+            jumpInterval = setInterval(() => {
+                if (currentJump >= totalJumps) {
+                    clearInterval(jumpInterval); return;
+                }
+                
+                let sIdx = currentJump * num;
+                let eIdx = sIdx + num;
+                let x1 = startX + sIdx * subSpace;
+                let x2 = startX + eIdx * subSpace;
+                let cx = (x1 + x2) / 2;
+                
+                // Yay yüksekliği (Viewbox dışına taşmaması için kontrol edildi)
+                let ry = Math.min(40 + (num * 8), 60); 
+
+                // Yay Çizimi
+                let path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", `M ${x1} ${lineY-15} Q ${cx} ${lineY-15 - ry*2} ${x2} ${lineY-15}`);
+                path.setAttribute("fill", "none");
+                path.setAttribute("stroke", "#00cec9");
+                path.setAttribute("stroke-width", "5");
+                path.setAttribute("stroke-linecap", "round");
+                path.setAttribute("class", "dash-anim");
+                svgEl.appendChild(path);
+
+                // Zıplama Etiketi (Kaçıncı Şişe)
+                let text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", cx);
+                text.setAttribute("y", lineY - 15 - ry - 10);
+                text.setAttribute("fill", "#ff7675");
+                text.setAttribute("font-size", "22");
+                text.setAttribute("font-weight", "900");
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("class", "fade-in");
+                text.textContent = `${currentJump + 1}`;
+                svgEl.appendChild(text);
+
+                // Şişe Emojisi (Çizginin hemen üstüne)
+                let bottle = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                bottle.setAttribute("x", cx);
+                bottle.setAttribute("y", lineY - 22); 
+                bottle.setAttribute("font-size", "24");
+                bottle.setAttribute("text-anchor", "middle");
+                bottle.setAttribute("class", "fade-in");
+                bottle.textContent = "🍶"; 
+                svgEl.appendChild(bottle);
+
+                playSound('pop');
+                currentJump++;
+            }, 450); 
+        }
+
+        // ==========================================
+        // SOKRATİK SENARYO (Faz 1)
+        // ==========================================
+        const scenarios = [
+            {
+                q: "Zehra Teyze, <b>6 litre</b> sirke yaptı! Önce bu 6 litreyi <b><span class='fraction'><span>1</span><span>2</span></span> litrelik</b> (yarım litrelik) şişelere doldurmak istiyor. <br><br>Sayı doğrusuna dikkatlice bak! Aradaki çizgilere (dilimlere) değerleri yazdık. 6 bütünü 2'şer eş parçaya böldük ve her birine şişemizi koyduk. Toplam kaç yarım parça (şişe) oluştu?",
+                opts: [
+                    { text: "6 Tane", correct: false },
+                    { text: "12 Tane", correct: true }
+                ],
+                animData: { whole: 6, den: 2, num: 1, desc: "6 Litre ÷ 1/2 Litre = ?" }
+            },
+            {
+                q: "Harika! 6 litreden 12 yarım şişe çıktı. <br>Bak ne oldu: 6'yı <span class='fraction'><span>1</span><span>2</span></span>'ye bölmek ( 6 &divide; <span class='fraction'><span>1</span><span>2</span></span> ), aslında 6'yı <b>2 ile çarpmakla (6x2)</b> aynı sonucu verdi! Sence bu tesadüf mü?",
+                opts: [
+                    { text: "Bölünen aynen kalır, bölen TERS çevrilip çarpılır.", correct: true },
+                    { text: "Evet, bu sadece tesadüftür.", correct: false }
+                ],
+                animData: null 
+            },
+            {
+                q: "Kuralı keşfettin bile! Birinci kesir aynen kalır, ikincisi <b>ters çevrilip çarpılır</b>. <br><br>Şimdi 6 litreyi <b><span class='fraction'><span>2</span><span>3</span></span> litrelik</b> şişelere bölelim. Sayı doğrusunda her tamı 3 parçaya böldük ve altlarına değerlerini (1/3, 2/3...) yazdık. Şişeleri 2'şer atlayarak yerleştiriyoruz! <br><br>Kurala göre ( 6 &times; <span class='fraction'><span>3</span><span>2</span></span> ) sonucu nedir?",
+                opts: [
+                    { text: "12 Şişe", correct: false },
+                    { text: "9 Şişe", correct: true } 
+                ],
+                animData: { whole: 6, den: 3, num: 2, desc: "6 Litre ÷ 2/3 Litre = ?" }
+            },
+            {
+                q: "Çok iyi! Son görev: 6 litreyi <b><span class='fraction'><span>3</span><span>4</span></span> litrelik</b> şişelere paylaştıralım. Bu kez sayı doğrusunda her tamı 4 dilime ayırdık ve her 3 dilimde bir şişe dolduruyoruz! (Dikkat et, şişeler tam olarak 3/4, 6/4, 9/4'ün üzerine denk geliyor). <br><br>Hadi kuralı uygula: ( 6 &times; <span class='fraction'><span>4</span><span>3</span></span> ) Kaç şişe dolar?",
+                opts: [
+                    { text: "8 Şişe", correct: true }, 
+                    { text: "24 Şişe", correct: false }
+                ],
+                animData: { whole: 6, den: 4, num: 3, desc: "6 Litre ÷ 3/4 Litre = ?" }
+            }
+        ];
+
+        // ==========================================
+        // OYUN AKIŞI 
+        // ==========================================
+        const startScreen = document.getElementById('start-screen');
+        const board = document.getElementById('animation-board');
+        const chatArea = document.getElementById('chat-area');
+        const optionsArea = document.getElementById('options-area');
+        
+        let currentStep = 0;
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            initAudio();
+            startScreen.style.display = 'none';
+            board.style.display = 'flex';
+            chatArea.style.display = 'flex';
+            optionsArea.style.display = 'flex';
+            
+            showTeacherQuestion();
+        });
+
+        function showTeacherQuestion() {
+            const stepData = scenarios[currentStep];
+            
+            if (stepData.animData) {
+                drawNumberLineAnimation(stepData.animData.whole, stepData.animData.den, stepData.animData.num, stepData.animData.desc);
+            }
+
+            appendMessage('teacher', stepData.q);
+            
+            optionsArea.innerHTML = '';
+            const shuffledOpts = [...stepData.opts].sort(() => Math.random() - 0.5);
+            shuffledOpts.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'opt-btn';
+                btn.innerHTML = opt.text;
+                btn.onclick = () => handleAnswer(btn, opt);
+                optionsArea.appendChild(btn);
+            });
+        }
+
+        function appendMessage(sender, htmlText) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message msg-${sender}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = `avatar avatar-${sender}`;
+            avatar.innerText = sender === 'teacher' ? '🧑‍🏫' : '🧑‍🎓';
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            bubble.innerHTML = htmlText;
+            
+            msgDiv.appendChild(avatar);
+            msgDiv.appendChild(bubble);
+            chatArea.appendChild(msgDiv);
+            
+            playSound('msg');
+            setTimeout(() => { chatArea.scrollTop = chatArea.scrollHeight; }, 50);
+        }
+
+        function handleAnswer(btn, opt) {
+            if (opt.correct) {
+                const allBtns = optionsArea.querySelectorAll('.opt-btn');
+                allBtns.forEach(b => { b.onclick = null; b.style.opacity = '0.5'; });
+                
+                playSound('correct');
+                appendMessage('student', opt.text);
+                optionsArea.innerHTML = ''; 
+                
+                currentStep++;
+                
+                setTimeout(() => {
+                    if (currentStep < scenarios.length) {
+                        showTeacherQuestion();
+                    } else {
+                        finishPhase1();
+                    }
+                }, 1500);
+
+            } else {
+                playSound('wrong');
+                btn.classList.add('wrong');
+                setTimeout(() => btn.classList.remove('wrong'), 500);
+            }
+        }
+
+        function finishPhase1() {
+            document.getElementById('board-desc').innerText = "Tebrikler! Animasyon Tamamlandı!";
+            launchConfetti();
+            appendMessage('teacher', '<b>🎉 EFSANE! Zehra Teyze\'nin sirke problemini sayı doğrusu modellemesiyle çözdün ve "Ters Çevirip Çarpma" kuralını harika bir şekilde ispatladın! <br><br> Not: 2. Fazda bileşik kesre çevirme ve çapraz sadeleştirme animasyonlarıyla kitaptaki tüm işlemleri çözeceğiz. Hazırlıklar sürüyor! Şimdilik bu bölümün sonu!</b>');
+            
+            const restartBtn = document.createElement('button');
+            restartBtn.className = 'btn-start';
+            restartBtn.style.margin = '20px auto';
+            restartBtn.innerText = 'Animasyonları Tekrar İzle 🔄';
+            restartBtn.onclick = () => location.reload();
+            optionsArea.appendChild(restartBtn);
+        }
+
+        // ==========================================
+        // KONFETİ EFEKTİ
+        // ==========================================
+        const canvas = document.getElementById("confetti-canvas");
+        const ctx = canvas.getContext("2d");
+        let particles = []; let animFrame = null;
+
+        function setCanvasSize() { canvas.width = document.getElementById("game-wrapper").offsetWidth; canvas.height = document.getElementById("game-wrapper").offsetHeight; }
+        window.addEventListener("resize", setCanvasSize);
+
+        function launchConfetti() {
+            canvas.style.display = 'block'; setCanvasSize();
+            let colors = ["#9b59b6", "#00cec9", "#ff7675", "#00b894", "#f1c40f"];
+            for (let i = 0; i < 120; i++) {
+                particles.push({
+                    x: canvas.width / 2, y: canvas.height, 
+                    r: Math.random() * 5 + 3, dx: Math.random() * 20 - 10, dy: -(Math.random() * 15 + 8), 
+                    color: colors[Math.floor(Math.random() * colors.length)]
+                });
+            }
+            if(!animFrame) animateConfetti();
+        }
+
+        function animateConfetti() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); let active = false;
+            particles.forEach(p => {
+                p.x += p.dx; p.y += p.dy; p.dy += 0.5; 
+                if (p.y < canvas.height) active = true;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill();
+            });
+            if (active) animFrame = requestAnimationFrame(animateConfetti); 
+            else { ctx.clearRect(0, 0, canvas.width, canvas.height); animFrame = null; particles = []; }
+        }
+    </script>
+</body>
+</html>
